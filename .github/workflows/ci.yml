@@ -57,7 +57,7 @@ jobs:
  
       - name: Install frontend dependencies
         if: matrix.service == 'frontend'
-        run: npm ci
+        run: npm install
         working-directory: frontend
  
       # Шаг 4: Проверки
