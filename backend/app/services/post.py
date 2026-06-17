@@ -3,7 +3,7 @@ from sqlalchemy import desc
 
 from app.models.post import Post
 from app.schemas.post import PostCreate, PostUpdate
-from app.services.cache import set_cached_post, invalidate_post
+from app.services.cache import invalidate_post
 
 
 def create_post(db: Session, post_data: PostCreate, author_id: int) -> Post:

@@ -3,10 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.models.post import Post
 from app.schemas.post import PostCreate, PostUpdate, PostResponse, PostsPaginated
 from app.services.post import create_post, get_post_by_id, get_posts_paginated, update_post, delete_post
-from app.services.cache import get_cached_post, set_cached_post, get_cached_posts, set_cached_posts, invalidate_post
+from app.services.cache import get_cached_post, set_cached_post, get_cached_posts, set_cached_posts
 from app.dependencies import get_current_user
 
 router = APIRouter()
