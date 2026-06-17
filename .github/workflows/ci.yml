@@ -8,6 +8,10 @@ on:
     branches: [main]           # при пуше в main
   pull_request:
     branches: [main]           # при PR в main
+
+# Глобальные переменные для всего workflow
+env:
+  DOCKER_USER: mahkmud      # Ваш логин Docker Hub (взят из логов GitHub)
  
 # ============================================================
 # JOB 1: Проверка кода (запускается всегда)
@@ -65,6 +69,7 @@ jobs:
         if: matrix.service == 'backend'
         run: ruff check backend/
  
+      # Шаг 5: Проверка сборки фронтенда
       - name: 🔨 Build frontend (проверка TypeScript)
         if: matrix.service == 'frontend'
         run: npm run build
@@ -96,22 +101,24 @@ jobs:
       - name: 🔑 Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          username: ${{ env.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }} # Токен остается скрытым в секретах
+
+      # Шаг 2: Инициализировать Buildx драйвер для gha-кэша
       - name: 🐳 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
  
-      # Шаг 2: Сгенерировать теги образов (latest + SHA коммита)
+      # Шаг 3: Сгенерировать теги образов (latest + SHA коммита)
       - name: 🏷️ Generate tags
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKER_USERNAME }}/${{ matrix.image }}
+          images: ${{ env.DOCKER_USER }}/${{ matrix.image }}
           tags: |
             type=raw,value=latest
             type=sha,prefix=
  
-      # Шаг 3: Собрать и запушить образ с кэшированием
+      # Шаг 4: Собрать и запушить образ с кэшированием
       - name: 🏗️ Build and push
         uses: docker/build-push-action@v5
         with:
@@ -121,4 +128,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
- 
