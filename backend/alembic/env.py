@@ -9,7 +9,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-from app.database import Base
+from app.database import Base #noqa E402
 from app.models.user import User  # noqa
 from app.models.post import Post  # noqa
 from app.models.comment import Comment  # noqa
