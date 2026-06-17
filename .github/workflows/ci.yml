@@ -1,0 +1,122 @@
+name: CI/CD
+ 
+# ============================================================
+# ТРИГГЕРЫ: когда запускать pipeline
+# ============================================================
+on:
+  push:
+    branches: [main]           # при пуше в main
+  pull_request:
+    branches: [main]           # при PR в main
+ 
+# ============================================================
+# JOB 1: Проверка кода (запускается всегда)
+# ============================================================
+jobs:
+  test:
+    name: 🧪 Tests & Lint
+    runs-on: ubuntu-latest
+ 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: backend
+            dir: backend
+          - service: frontend
+            dir: frontend
+ 
+    steps:
+      # Шаг 1: Клонировать репозиторий в runner
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+ 
+      # Шаг 2: Настроить окружение в зависимости от сервиса
+      - name: 🐍 Setup Python (backend)
+        if: matrix.service == 'backend'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+ 
+      - name: 📦 Setup Node.js (frontend)
+        if: matrix.service == 'frontend'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+ 
+      # Шаг 3: Установить зависимости
+      - name: Install backend dependencies
+        if: matrix.service == 'backend'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install ruff
+ 
+      - name: Install frontend dependencies
+        if: matrix.service == 'frontend'
+        run: npm ci
+        working-directory: frontend
+ 
+      # Шаг 4: Проверки
+      - name: 🔍 Lint backend (ruff)
+        if: matrix.service == 'backend'
+        run: ruff check backend/
+ 
+      - name: 🔨 Build frontend (проверка TypeScript)
+        if: matrix.service == 'frontend'
+        run: npm run build
+        working-directory: frontend
+ 
+  # ============================================================
+  # JOB 2: Сборка и пуш Docker-образов (только на main)
+  # ============================================================
+  build-and-push:
+    name: 🐳 Build & Push Docker Images
+    needs: test                                # ждать успешного test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+ 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: blog-cms-backend
+            context: ./backend
+          - image: blog-cms-frontend
+            context: ./frontend
+ 
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+ 
+      # Шаг 1: Авторизоваться в Docker Hub
+      - name: 🔑 Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+ 
+      # Шаг 2: Сгенерировать теги образов (latest + SHA коммита)
+      - name: 🏷️ Generate tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/${{ matrix.image }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=
+ 
+      # Шаг 3: Собрать и запушить образ с кэшированием
+      - name: 🏗️ Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+ 
